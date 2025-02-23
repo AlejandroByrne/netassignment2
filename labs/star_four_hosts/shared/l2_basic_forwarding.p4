@@ -95,7 +95,7 @@ control MyIngress(inout headers hdr,
             // port at which the packet arrived 
             hdr.ethernet.dstAddr: exact;
         }
-        action = {
+        actions = {
             forward_to_port;
         }
 
@@ -110,7 +110,7 @@ control MyIngress(inout headers hdr,
         key = {
             hdr.ethernet.srcAddr: exact; 
         }
-        action = {
+        actions = {
             NoAction
         }
 
