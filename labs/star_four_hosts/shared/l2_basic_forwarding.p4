@@ -8,7 +8,9 @@
 
 typedef bit<48> macAddr_t;
 header ethernet_t {
-    /* TODO: Define ethernet header*/ 
+    macAddr_t dstAddr; 
+    macAddr_t srcAddr; 
+    bit<16> etherType; 
 }
 
 /* digest format for mac learning*/
@@ -22,6 +24,11 @@ struct metadata {
 
 struct headers {
     ethernet_t ethernet;
+}
+
+struct mac_learn_digest_t{
+    macAddr_t srcAddr; 
+    bit<9> ingress_port;
 }
 
 /*************************************************************************
@@ -74,6 +81,8 @@ control MyIngress(inout headers hdr,
     action learn() {
         mac_learn_digest_t mac_learn_msg;
         /* TODO: Fill the digest message with srcMAC and ingress port */
+        mac_learn_msg.srcAddr = hdr.ethernet.srcAddr;
+        mac_learn_msg.ingress_port = standard_metadata.ingress_port;
         
         /* send the digest message to the controller */
         digest<mac_learn_digest_t>(1, mac_learn_msg);
@@ -82,15 +91,32 @@ control MyIngress(inout headers hdr,
     /* define forwarding table */
     table dmac_forward {
         /* TODO: define key, actions, and default action for the table */ 
+        key = {
+            // port at which the packet arrived 
+            hdr.ethernet.dstAddr: exact;
+        }
+        action = {
+            forward_to_port;
+        }
+
         size = 4;
         support_timeout = true;
+        default_action = broadcast()
     }
 
     /* check if the mac address to port mapping exists */
     table smac_table{
         /* TODO: define key, actions, and default action for the table */  
+        key = {
+            hdr.ethernet.srcAddr: exact; 
+        }
+        action = {
+            NoAction
+        }
+
         size = 4;
         support_timeout = true;
+        default_action = learn()
     }
 
     /* applying tables */
