@@ -111,7 +111,7 @@ control MyIngress(inout headers hdr,
             hdr.ethernet.srcAddr: exact; 
         }
         actions = {
-            NoAction
+            NoAction;
         }
 
         size = 4;
