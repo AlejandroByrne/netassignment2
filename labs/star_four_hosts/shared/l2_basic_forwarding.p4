@@ -15,7 +15,8 @@ header ethernet_t {
 
 /* digest format for mac learning*/
 struct mac_learn_digest_t {
-    /* TODO */ 
+    macAddr_t srcAddr; 
+    bit<9> ingress_port; 
 }
 
 struct metadata {
@@ -24,11 +25,6 @@ struct metadata {
 
 struct headers {
     ethernet_t ethernet;
-}
-
-struct mac_learn_digest_t{
-    macAddr_t srcAddr; 
-    bit<9> ingress_port;
 }
 
 /*************************************************************************
