@@ -101,7 +101,7 @@ control MyIngress(inout headers hdr,
 
         size = 4;
         support_timeout = true;
-        default_action = broadcast()
+        default_action = broadcast();
     }
 
     /* check if the mac address to port mapping exists */
@@ -116,7 +116,7 @@ control MyIngress(inout headers hdr,
 
         size = 4;
         support_timeout = true;
-        default_action = learn()
+        default_action = learn();
     }
 
     /* applying tables */
