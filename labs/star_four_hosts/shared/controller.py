@@ -86,7 +86,7 @@ def main(p4info_file_path, bmv2_file_path):
                 smac_table_entry = p4info_helper.buildTableEntry(
                     "MyIngress.smac_table", 
                     match_fields={"hdr.ethernet.srcAddr": eth_src_addr},
-                    action_name="MyIngress.NoAction"
+                    action_name="NoAction"
                     )
                 
 
