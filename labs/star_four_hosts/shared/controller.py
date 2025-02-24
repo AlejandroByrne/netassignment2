@@ -101,6 +101,7 @@ def main(p4info_file_path, bmv2_file_path):
                 s1.WriteTableEntry(smac_table_entry)
                 s1.WriteTableEntry(dmac_table_entry)
                 
+                
             elif (digest_type == 'idle_timeout_notification'):
                 # Handle timeout
                 table_entries = digests.idle_timeout_notification.table_entry
