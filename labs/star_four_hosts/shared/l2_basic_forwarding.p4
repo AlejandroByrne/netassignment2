@@ -93,6 +93,7 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             forward_to_port;
+            broadcast;
         }
 
         size = 4;
@@ -108,6 +109,7 @@ control MyIngress(inout headers hdr,
         }
         actions = {
             NoAction;
+            learn;
         }
 
         size = 4;
