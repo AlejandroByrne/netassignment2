@@ -101,50 +101,108 @@ control MyIngress(inout headers hdr,
 
     action forward_to_port(bit<9> egress_port, macAddr_t egress_mac) {
         /* TODO: change the packet's source MAC address to egress_mac */
+        hdr.ethernet.srcAddr = egress_mac;
         /* Then set the egress_spec in the packet's standard_metadata to egress_port */
+        standard_metadata.egress_spec = egress_port;
     }
    
     action decrement_ttl() {
         /* TODO: decrement the IPv4 header's TTL field by one */
+        hdr.ipv4.TTL = hdr.ipv4.TTL - 1;
+
+        if (hdr.ipv4.TTL == 0) { // drop the packet if its TTL reaches zero
+            mark_to_drop(standard_metadata);
+        }
     }
 
     action forward_to_next_hop(ipAddr_t next_hop){
         /* TODO: write next_hop to metadata's next_hop field */
+        meta.next_hop = next_hop;
     }
 
     action change_dst_mac (macAddr_t dst_mac) {
         /* TODO: change a packet's destination MAC address to dst_mac*/
+        hdr.ethernet.dstAddr = dst_mac;
     }
 
     /* define routing table */
     table ipv4_route {
         /* TODO: define a static ipv4 routing table */
+        key = {
+            hdr.ipv4.dstAddr: lpm; // longest-prefix match
+        }
+
+        actions = {
+            forward_to_next_hop;
+            decrement_ttl;
+            change_dst_mac;
+            drop;
+            NoAction;
+        }
         /* Perform longest prefix matching on dstIP then */
+
         /* record the next hop IP address in the metadata's next_hop field*/
+        size = 4;
+        default_action = drop();
     }
 
     /* define static ARP table */
     table arp_table {
         /* TODO: define a static ARP table */
+        key = {
+            meta.next_hop: exact;
+        }
+
+        actions = {
+            change_dst_mac;
+            drop;
+            NoAction;
+        }
         /* Perform exact matching on metadata's next_hop field then */
         /* modify the packet's src and dst MAC addresses upon match */
+        size = 4;
+        default_action = drop();
     }
 
 
     /* define forwarding table */
     table dmac_forward {
         /* TODO: define a static forwarding table */
+        key = {
+            hdr.ethernet.dstAddr: exact;
+        }
+
+        actions = {
+            forward_to_port;
+            drop;
+            NoAction;
+        }
         /* Perform exact matching on dstMAC then */
         /* forward to the corresponding egress port */ 
+        size = 4;
+        default_action = drop();
     }
    
     /* applying dmac */
     apply {
         /* TODO: Implement a routing logic */
         /* 1. Lookup IPv4 routing table */
+        ipv4_route.apply();
+
         /* 2. Upon hit, lookup ARP table */
-        /* 3. Upon hit, Decrement ttl */
-        /* 4. Then lookup forwarding table */  
+        if (!standard_metadata.drop_flag) { // IP addr had a match for the subnet
+            arp_table.apply();
+
+            if (!standard_metadata.drop_flag) { // IP addr had a match for the MAC of subnet mask 
+                /* 3. Upon hit, Decrement ttl */
+                decrement_ttl();
+
+                if (!standard_metadata.drop_flag) { // Next, find the exact port to send it to
+                    /* 4. Then lookup forwarding table */ 
+                    dmac_forward.apply();
+                }
+            }
+        } 
     }
 }
 
