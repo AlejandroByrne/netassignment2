@@ -103,7 +103,7 @@ control MyIngress(inout headers hdr,
         /* TODO: change the packet's source MAC address to egress_mac */
         hdr.ethernet.srcAddr = egress_mac;
         /* Then set the egress_spec in the packet's standard_metadata to egress_port */
-        standard_metadata.egress_spec = egress_port;
+        standard_metadata.egress_spec = egress_port; // now the metadata knows which port to send this packet to
     }
    
     action decrement_ttl() {
@@ -134,8 +134,6 @@ control MyIngress(inout headers hdr,
 
         actions = {
             forward_to_next_hop;
-            decrement_ttl;
-            change_dst_mac;
             drop;
             NoAction;
         }
@@ -187,19 +185,21 @@ control MyIngress(inout headers hdr,
     apply {
         /* TODO: Implement a routing logic */
         /* 1. Lookup IPv4 routing table */
+        // At this exact point, it is not known if the packet's dest IP is recognized
         ipv4_route.apply();
 
         /* 2. Upon hit, lookup ARP table */
         if (!standard_metadata.drop_flag) { // IP addr had a match for the subnet
             arp_table.apply();
 
-            if (!standard_metadata.drop_flag) { // IP addr had a match for the MAC of subnet mask 
+            if (!standard_metadata.drop_flag) { // IP addr had a match for routing to another router
                 /* 3. Upon hit, Decrement ttl */
                 decrement_ttl();
 
-                if (!standard_metadata.drop_flag) { // Next, find the exact port to send it to
+                if (!standard_metadata.drop_flag) { // The packet still has time to live: Next, find the exact port to send it to
                     /* 4. Then lookup forwarding table */ 
                     dmac_forward.apply();
+                    // Then, ingress is done and egress should have all the relevant values for sending it off.
                 }
             }
         } 
@@ -227,6 +227,7 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
         /* TODO: calculate the modified packet's checksum */
         /* using update_checksum() extern */
         /* Use HashAlgorithm.csum16 as a hash algorithm */
+        
     } 
 }
 
