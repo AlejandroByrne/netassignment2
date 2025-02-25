@@ -55,10 +55,10 @@ def main(p4info_file_path, bmv2_file_path, routing_info):
                 # 2. Add the table_entry to the switch by calling s1's WriteTableEntry() method
                 table_entry = p4info_helper.buildTableEntry(
                     table_name="MyIngress.ipv4_route",
-                    match_fields={"hdr.ipv4.dstAddr": prefix},
+                    match_fields={"hdr.ipv4.dstAddr": (prefix, prefix_len)},
                     action_name="MyIngress.forward_to_next_hop",
                     action_params={
-                        "next_hop"=next_hop_ip
+                        "next_hop":next_hop_ip
                     })
                 s1.WriteTableEntry(table_entry)
                 
@@ -72,7 +72,7 @@ def main(p4info_file_path, bmv2_file_path, routing_info):
                     match_fields={"meta.next_hop": next_hop_ip},
                     action_name="MyIngress.change_dst_mac",
                     action_params={
-                        "dst_mac"=next_hop_mac
+                        "dst_mac":next_hop_mac
                     }
                 )
                 s1.WriteTableEntry(table_entry)
@@ -87,8 +87,8 @@ def main(p4info_file_path, bmv2_file_path, routing_info):
                     match_fields={"hdr.ethernet.dstAddr": next_hop_mac},
                     action_name="MyIngress.forward_to_port",
                     action_params={
-                        "egress_port"=egress_port,
-                        "egress_mac"=egress_mac
+                        "egress_port":egress_port,
+                        "egress_mac":egress_mac
                     }
                 )
                 s1.WriteTableEntry(table_entry)

@@ -31,6 +31,7 @@ header ipv4_t {
 
 struct metadata {
     ipAddr_t next_hop;
+    bool is_dropped;
 }
 
 struct headers {
@@ -60,10 +61,9 @@ parser MyParser(packet_in packet,
         packet.extract(hdr.ethernet);
 
         /* if the frame type is IPv4, go to IPv4 parsing */
-        if (hdr.ethernet.etherType == ETHER_IPV4) {
-            transition parse_ipv4;
-        } else {
-            transition accept;
+        transition select(hdr.ethernet.etherType) {
+            ETHER_IPV4: parse_ipv4;
+            default: accept;
         }
     }
 
@@ -96,7 +96,8 @@ control MyIngress(inout headers hdr,
 
     /* define actions */
     action drop() {
-        mark_to_drop(standard_metadata);
+        // mark_to_drop(standard_metadata);
+        meta.is_dropped = true;
     }
 
     action forward_to_port(bit<9> egress_port, macAddr_t egress_mac) {
@@ -111,7 +112,7 @@ control MyIngress(inout headers hdr,
         hdr.ipv4.TTL = hdr.ipv4.TTL - 1;
 
         if (hdr.ipv4.TTL == 0) { // drop the packet if its TTL reaches zero
-            mark_to_drop(standard_metadata);
+            drop();
         }
     }
 
@@ -189,14 +190,14 @@ control MyIngress(inout headers hdr,
         ipv4_route.apply();
 
         /* 2. Upon hit, lookup ARP table */
-        if (!standard_metadata.drop_flag) { // IP addr had a match for the subnet
+        if (!meta.is_dropped) { // IP addr had a match for the subnet
             arp_table.apply();
 
-            if (!standard_metadata.drop_flag) { // IP addr had a match for routing to another router
+            if (!meta.is_dropped) { // IP addr had a match for routing to another router
                 /* 3. Upon hit, Decrement ttl */
                 decrement_ttl();
 
-                if (!standard_metadata.drop_flag) { // The packet still has time to live: Next, find the exact port to send it to
+                if (!meta.is_dropped) { // The packet still has time to live: Next, find the exact port to send it to
                     /* 4. Then lookup forwarding table */ 
                     dmac_forward.apply();
                     // Then, ingress is done and egress should have all the relevant values for sending it off.
