@@ -18,13 +18,16 @@ header ethernet_t {
 /* a basic ip header without options and pad */
 header ipv4_t {
     /* TODO: define IP header */
-    bit<4> version;
-    bit<4> hdl;
-    bit<8> TOS;
-    bit<16> length;
-    bit<8> TTL;
-    bit<8> protocol;
-    bit<16> checksum;
+    bit<4>    version;
+    bit<4>    ihl;
+    bit<8>    diffserv;
+    bit<16>   totalLen;
+    bit<16>   identification;
+    bit<3>    flags;
+    bit<13>   fragOffset;
+    bit<8>    ttl;
+    bit<8>    protocol;
+    bit<16>   hdrChecksum;
     ipAddr_t srcAddr;
     ipAddr_t dstAddr;
 }
@@ -96,7 +99,7 @@ control MyIngress(inout headers hdr,
 
     /* define actions */
     action drop() {
-        // mark_to_drop(standard_metadata);
+        mark_to_drop(standard_metadata);
         meta.is_dropped = true;
     }
 
@@ -109,11 +112,7 @@ control MyIngress(inout headers hdr,
    
     action decrement_ttl() {
         /* TODO: decrement the IPv4 header's TTL field by one */
-        hdr.ipv4.TTL = hdr.ipv4.TTL - 1;
-
-        if (hdr.ipv4.TTL == 0) { // drop the packet if its TTL reaches zero
-            drop();
-        }
+        hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
     }
 
     action forward_to_next_hop(ipAddr_t next_hop){
@@ -186,24 +185,31 @@ control MyIngress(inout headers hdr,
     apply {
         /* TODO: Implement a routing logic */
         /* 1. Lookup IPv4 routing table */
-        // At this exact point, it is not known if the packet's dest IP is recognized
         ipv4_route.apply();
+        if (meta.is_dropped) {
+            log_msg("Packet dropped after ipv4_route lookup");
+            return;
+        }
 
-        /* 2. Upon hit, lookup ARP table */
-        if (!meta.is_dropped) { // IP addr had a match for the subnet
-            arp_table.apply();
+        arp_table.apply();
+        if (meta.is_dropped) {
+            log_msg("Packet dropped after arp_table lookup");
+            return;
+        }
 
-            if (!meta.is_dropped) { // IP addr had a match for routing to another router
-                /* 3. Upon hit, Decrement ttl */
-                decrement_ttl();
+        decrement_ttl();
+        if (hdr.ipv4.ttl == 0) {
+            log_msg("Packet dropped due to TTL expiration");
+            drop();
+            return;
+        }
 
-                if (!meta.is_dropped) { // The packet still has time to live: Next, find the exact port to send it to
-                    /* 4. Then lookup forwarding table */ 
-                    dmac_forward.apply();
-                    // Then, ingress is done and egress should have all the relevant values for sending it off.
-                }
-            }
-        } 
+        dmac_forward.apply();
+        if (meta.is_dropped) {
+            log_msg("Packet dropped after dmac_forward lookup");
+            return;
+        }
+
     }
 }
 
@@ -228,7 +234,22 @@ control MyComputeChecksum(inout headers hdr, inout metadata meta) {
         /* TODO: calculate the modified packet's checksum */
         /* using update_checksum() extern */
         /* Use HashAlgorithm.csum16 as a hash algorithm */
-        
+        update_checksum(
+        hdr.ipv4.isValid(),
+            { hdr.ipv4.version,
+              hdr.ipv4.ihl,
+              hdr.ipv4.diffserv,
+              hdr.ipv4.totalLen,
+              hdr.ipv4.identification,
+              hdr.ipv4.flags,
+              hdr.ipv4.fragOffset,
+              hdr.ipv4.ttl,
+              hdr.ipv4.protocol,
+              hdr.ipv4.srcAddr,
+              hdr.ipv4.dstAddr },
+            hdr.ipv4.hdrChecksum,
+            HashAlgorithm.csum16
+        );
     } 
 }
 
